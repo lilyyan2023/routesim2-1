@@ -15,6 +15,7 @@ class Link_State_Node(Node):
 
     # Fill in this function
     def link_has_been_updated(self, neighbor, latency):
+        #print("updating " + str(self.id) + " to " + str(neighbor))
         if self.id not in self.vertices:
             self.vertices.append(self.id)
         if neighbor not in self.vertices:
@@ -30,18 +31,21 @@ class Link_State_Node(Node):
         routing_message = json.dumps(routing_message_dict)
         self.latest_msg = routing_message
         self.nodes[frozenset([self.id,neighbor])] = latency
-        self.send_to_neighbors(routing_message)
         # latency = -1 if delete a link
         if latency == -1 and neighbor in self.neighbors:
             self.neighbors.remove(neighbor)
         # add new links
         if latency != -1 and neighbor not in self.neighbors:
             self.neighbors.append(neighbor)
-
+        #print(self.nodes)
+        #print("current seq is "+ str(self.seq_num))
+        self.send_to_neighbors(routing_message)
+        #print("neighbor are " + str(self.neighbors))
         self.logging.debug('link update, neighbor %d, latency %d, time %d' % (neighbor, latency, self.get_time()))
 
     # Fill in this function
     def process_incoming_routing_message(self, m):
+        #print(str(self.id) + "recevive a message")
         if self.id not in self.vertices:
             self.vertices.append(self.id)
         m_dict = json.loads(m)
@@ -50,14 +54,28 @@ class Link_State_Node(Node):
         m_seq_num = m_dict["seq"]
         m_src = m_dict["src"]
         m_dst = m_dict["dst"]
+        if m_sender not in self.vertices:
+            self.vertices.append(m_sender)
+        #print("current seq is "+ str(self.seq_num))
+        #print("receive seq is "+ str(m_seq_num))
         #Old seq_num arrive: transmit the lastest version back
-        if m_seq_num < self.seq_num:
+        latest_dict = json.loads(self.latest_msg)
+        if latest_dict["src"] != m_src or latest_dict["dst"] != m_dst:
+            self.seq_num = m_seq_num
+            self.latest_msg = m
             latest_dict = json.loads(self.latest_msg)
+            latest_dict["sender"] = self.id
+            routing_message = json.dumps(latest_dict)
+            self.nodes[frozenset([m_src,m_dst])] = m_latency
+            for neighbor in self.neighbors:
+                if neighbor != m_sender:
+                    self.send_to_neighbor(neighbor, routing_message)
+        elif m_seq_num < self.seq_num:
             latest_dict["sender"] = self.id
             routing_message = json.dumps(latest_dict)
             self.send_to_neighbor(m_sender, routing_message)
         #New seq_num arrive: retransmit to other link
-        elif m_seq_num > self.seq_num:
+        elif m_seq_num >= self.seq_num:
             self.seq_num = m_seq_num
             self.latest_msg = m
             latest_dict = json.loads(self.latest_msg)
@@ -68,11 +86,19 @@ class Link_State_Node(Node):
                 if neighbor != m_sender:
                     self.send_to_neighbor(neighbor, routing_message)
         #Same seq_num arrive: do nothing
+        print(self.nodes)
         self.logging.debug("receive a message at Time %d. " % self.get_time() + m)
 
 
     def Dijkstra(self):
+        uni = frozenset([])
+        for pair in self.nodes.keys():
+            uni = uni.union(pair)
+        self.vertices = list(uni)
+        print(uni)
+        print(self.neighbors)
         print(self.nodes)
+        print(self.vertices)
         dist = {}
         prev = {}
         for v in self.vertices:
@@ -80,6 +106,7 @@ class Link_State_Node(Node):
             prev[v] = None
         dist[self.id] = 0
         unvisited = self.vertices.copy()
+        print("unvisited " + str(unvisited))
         sorted_dict = {}
         sorted_keys = sorted(dist, key=dist.get)
         for w in sorted_keys:
@@ -88,6 +115,9 @@ class Link_State_Node(Node):
         while len(unvisited) > 0:
             u = None
             for k in sorted_keys:
+                if u != None:
+                    break
+                print(k)
                 if k in unvisited: 
                     u = k
             print("we will remove" + str(u))
