@@ -40,7 +40,7 @@ class Link_State_Node(Node):
         #print(self.nodes)
         #print("current seq is "+ str(self.seq_num))
         self.send_to_neighbors(routing_message)
-        #print("neighbor are " + str(self.neighbors))
+        print("neighbor are " + str(self.neighbors))
         self.logging.debug('link update, neighbor %d, latency %d, time %d' % (neighbor, latency, self.get_time()))
 
     # Fill in this function
@@ -91,6 +91,7 @@ class Link_State_Node(Node):
 
 
     def Dijkstra(self):
+        print("=======================================================================")
         uni = frozenset([])
         for pair in self.nodes.keys():
             uni = uni.union(pair)
@@ -114,10 +115,10 @@ class Link_State_Node(Node):
         print(sorted_dict)
         while len(unvisited) > 0:
             u = None
+            sorted_keys = sorted(dist, key=dist.get)
             for k in sorted_keys:
                 if u != None:
                     break
-                print(k)
                 if k in unvisited: 
                     u = k
             print("we will remove" + str(u))
@@ -130,6 +131,8 @@ class Link_State_Node(Node):
                     if alt < dist[v]:
                         dist[v] = alt
                         prev[v] = u
+                    print("new dist is " + str(dist))
+                    print("new prev is " + str(prev))
         return dist, prev
 
     # Return a neighbor, -1 if no path to destination
