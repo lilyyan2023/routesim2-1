@@ -5,7 +5,7 @@ class Link_State_Node(Node):
     def __init__(self, id):
         super().__init__(id)
         self.nodes = {}
-        self.seq_num = 0
+        self.seq = {}
         self.latest_msg = ""
         self.vertices = []
 
@@ -20,23 +20,26 @@ class Link_State_Node(Node):
             self.vertices.append(self.id)
         if neighbor not in self.vertices:
             self.vertices.append(neighbor)
-        self.seq_num += 1
         #routing_message = str([self.id, neighbor, self.seq_num, latency])
+        self.nodes[frozenset([self.id,neighbor])] = latency
+        self.seq[frozenset([self.id,neighbor])] = self.get_time()
         routing_message_dict = {}
         routing_message_dict["sender"] = self.id
         routing_message_dict["src"] = self.id
         routing_message_dict["dst"] = neighbor
-        routing_message_dict["seq"] = self.seq_num
+        routing_message_dict["seq"] = self.get_time()
         routing_message_dict["cost"] = latency
         routing_message = json.dumps(routing_message_dict)
         self.latest_msg = routing_message
-        self.nodes[frozenset([self.id,neighbor])] = latency
+        
         # latency = -1 if delete a link
         if latency == -1 and neighbor in self.neighbors:
-            self.neighbors.remove(neighbor)
+            #self.neighbors.remove(neighbor)
+            self.nodes.pop(frozenset([self.id,neighbor]))
         # add new links
         if latency != -1 and neighbor not in self.neighbors:
-            self.neighbors.append(neighbor)
+            #self.neighbors.append(neighbor)
+            self.send_to_neighbor(neighbor, routing_message)
         #print(self.nodes)
         #print("current seq is "+ str(self.seq_num))
         self.send_to_neighbors(routing_message)
@@ -45,6 +48,8 @@ class Link_State_Node(Node):
 
     # Fill in this function
     def process_incoming_routing_message(self, m):
+        #print("current seq " + str(self.seq_num))
+        
         #print(str(self.id) + "recevive a message")
         if self.id not in self.vertices:
             self.vertices.append(self.id)
@@ -54,26 +59,48 @@ class Link_State_Node(Node):
         m_seq_num = m_dict["seq"]
         m_src = m_dict["src"]
         m_dst = m_dict["dst"]
+        #if (m_src == 5 and m_dst == 1) or (m_src == 1 and m_dst == 5):
+            #print(m)
+        #print("received seq " + str(m_seq_num))
         if m_sender not in self.vertices:
             self.vertices.append(m_sender)
+        if m_sender not in self.neighbors:
+            self.neighbors.append(m_sender)
+            for k in self.nodes.keys():
+                routing_message_dict = {}
+                routing_message_dict["sender"] = self.id
+                routing_message_dict["src"] = list(k)[0]
+                routing_message_dict["dst"] = list(k)[1]
+                routing_message_dict["seq"] = self.seq[k]
+                routing_message_dict["cost"] = self.nodes[k]
+                routing_message = json.dumps(routing_message_dict)
+                self.send_to_neighbor(m_sender, routing_message)    
         #print("current seq is "+ str(self.seq_num))
         #print("receive seq is "+ str(m_seq_num))
         #Old seq_num arrive: transmit the lastest version back
         latest_dict = json.loads(self.latest_msg)
-        if latest_dict["src"] != m_src or latest_dict["dst"] != m_dst or m_seq_num > self.seq_num:
-            self.seq_num = m_seq_num
-            self.latest_msg = m
-            latest_dict = json.loads(self.latest_msg)
-            latest_dict["sender"] = self.id
-            routing_message = json.dumps(latest_dict)
-            self.nodes[frozenset([m_src,m_dst])] = m_latency
+        if frozenset([m_src,m_dst]) not in self.seq.keys() or self.seq[frozenset([m_src,m_dst])] < m_seq_num:
+            if m_latency == -1:
+                self.nodes.pop(frozenset([m_src,m_dst]))
+            else:
+                self.nodes[frozenset([m_src,m_dst])] = m_latency
+            self.seq[frozenset([m_src,m_dst])] = m_seq_num
+            m_dict["sender"] = self.id
+            routing_message = json.dumps(m_dict)
             for neighbor in self.neighbors:
                 if neighbor != m_sender:
                     self.send_to_neighbor(neighbor, routing_message)
-        elif m_seq_num < self.seq_num:
-            latest_dict["sender"] = self.id
-            routing_message = json.dumps(latest_dict)
+        elif self.seq[frozenset([m_src,m_dst])] > m_seq_num:
+            m_dict["cost"] = self.nodes[frozenset([m_src,m_dst])]
+            m_dict["seq"] = self.seq[frozenset([m_src,m_dst])]
+            m_dict["sender"] = self.id
+            routing_message = json.dumps(m_dict)
             self.send_to_neighbor(m_sender, routing_message)
+        #print(self.nodes)
+        
+        
+
+
         #New seq_num arrive: retransmit to other link
         # elif m_seq_num >= self.seq_num:
         #     self.seq_num = m_seq_num
