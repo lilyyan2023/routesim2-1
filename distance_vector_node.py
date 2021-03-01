@@ -49,10 +49,10 @@ class Distance_Vector_Node(Node):
     def link_has_been_updated(self, neighbor, latency):
         # latency = -1 if delete a link
         if neighbor not in self.dv.keys():
-            self.dv[neighbor] = {"cost": latency, "path": [neighbor]}
+            self.dv[neighbor] = {"cost": latency, "path": [neighbor], "seq": self.get_time()}
         self.compute_shortest_path(neighbor, latency)
         routing_message_json = copy.deepcopy(self.dv)
-        routing_message_rv = {"message": routing_message_json, "sender": self.id}
+        routing_message_rv = {"message": routing_message_json, "sender": self.id, "seq": self.get_time()}
         routing_message = json.dumps(routing_message_rv)
         self.send_to_neighbors(routing_message)
 
@@ -87,20 +87,22 @@ class Distance_Vector_Node(Node):
     def process_incoming_routing_message(self, m):
         m_dict = json.loads(m)
         m_message = m_dict["message"]
+        m_seq = m_dict["seq"]
         m_sender = m_dict["sender"]
         if m_sender not in self.dv.keys():
             self.dv[m_sender] = m_message
-        if m_sender not in self.neighbor_dv.keys() or m_message != self.neighbor_dv[m_sender]:
-            self.neighbor_dv[m_sender] = m_message
+        if m_sender not in self.neighbor_dv.keys() or m_seq > self.neighbor_dv[m_sender]["seq"]:
+            self.neighbor_dv[m_sender] = {"message": m_message, "seq": m_seq}
             for d in m_message.keys():
                 if d not in self.dv.keys():
                     new_path = copy.deepcopy(m_message[d]["path"])
                     new_path.insert(0,m_sender)
                     print("new path" + str(new_path))
-                    self.dv[d] = {"cost": self.neighbor_dv[m_sender][d]["cost"] + m_message[d]["cost"], "path": new_path}
+                    self.dv[d] = {"cost": self.neighbor_dv[m_sender][d]["message"]["cost"] + m_message[d]["cost"], "path": new_path,
+                                  "seq": m_seq}
             self.compute_shortest_path_process()
             routing_message_json = copy.deepcopy(self.dv)
-            routing_message_rv = {"message": routing_message_json, "sender": self.id}
+            routing_message_rv = {"message": routing_message_json, "sender": self.id, "seq": m_seq}
             routing_message = json.dumps(routing_message_rv)
             self.send_to_neighbors(routing_message)
 
