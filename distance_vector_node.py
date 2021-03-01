@@ -20,8 +20,10 @@ class Distance_Vector_Node(Node):
                 alt = math.inf
                 prev = None
                 for neighbor in self.neighbor_dv.keys():
+                    # get every neighbor dv
                     dst_dv = self.neighbor_dv[neighbor]
                     if dst in dst_dv.keys() and self.id not in dst_dv[dst]["path"]:
+                        # never entered
                         print("enter")
                         if neighbor == n:
                             if latency + dst_dv[dst]["cost"] < alt:
@@ -33,11 +35,15 @@ class Distance_Vector_Node(Node):
                                 prev = neighbor
                 if prev != None:
                     self.dv[dst]["cost"] = alt
-                    print(self.neighbor_dv[prev][dst]["path"])
+                    # print(self.neighbor_dv[prev][dst]["path"])
                     new_path = copy.deepcopy(self.neighbor_dv[prev][dst]["path"])
-                    new_path.append(dst)
-                    new_path.reverse()
-                    self.dv[dst]["path"] = new_path
+                    # new_path.append(dst)
+                    # new_path.reverse()
+                    # print("updated new path" + str(new_path))
+                    if new_path != self.dv[dst]["path"]:
+                        new_path.append(dst)
+                        # new_path.reverse()
+                        self.dv[dst]["path"] = new_path
 
     # Fill in this function
     def link_has_been_updated(self, neighbor, latency):
@@ -51,9 +57,9 @@ class Distance_Vector_Node(Node):
         self.send_to_neighbors(routing_message)
 
     def compute_shortest_path_process(self):
-        print("============================================================")
-        print("current dv " + str(self.dv))
-        print("current neighbour " + str(self.neighbor_dv))
+        # print("============================================================")
+        # print("current dv " + str(self.dv))
+        # print("current neighbour " + str(self.neighbor_dv))
         if self.neighbor_dv != {}:
             for dst in self.dv.keys():
                 alt = math.inf
@@ -61,31 +67,36 @@ class Distance_Vector_Node(Node):
                 for neighbor in self.neighbor_dv.keys():
                     dst_dv = self.neighbor_dv[neighbor]
                     if dst in dst_dv.keys() and self.id not in dst_dv[dst]["path"]:
+                        # print("compute shortest path")
                         if self.dv[neighbor]["cost"] + dst_dv[dst]["cost"] < alt:
                             alt = self.dv[neighbor]["cost"] + dst_dv[dst]["cost"]
                             prev = neighbor
                 if prev != None:
                     self.dv[dst]["cost"] = alt
-                    print(self.neighbor_dv[prev][dst]["path"])
+                    # print(self.neighbor_dv[prev][dst]["path"])
                     new_path = copy.deepcopy(self.neighbor_dv[prev][dst]["path"])
-                    new_path.append(dst)
-                    new_path.reverse()
-                    self.dv[dst]["path"] = new_path
+                    # new_path.append(dst)
+                    # new_path.reverse()
+                    # print("dst path" + str(self.dv[dst]["path"]))
+                    # print("processed new path" + str(new_path))
+                    if new_path != self.dv[dst]["path"]:
+                        new_path.append(dst)
+                        self.dv[dst]["path"] = new_path
 
     # Fill in this function
     def process_incoming_routing_message(self, m):
         m_dict = json.loads(m)
-        #m_message_json = m_dict["message"]
         m_message = m_dict["message"]
         m_sender = m_dict["sender"]
         if m_sender not in self.dv.keys():
-            self.dv[m_sender] = {"cost": latency, "path": [m_sender]}
+            self.dv[m_sender] = m_message
         if m_sender not in self.neighbor_dv.keys() or m_message != self.neighbor_dv[m_sender]:
             self.neighbor_dv[m_sender] = m_message
             for d in m_message.keys():
                 if d not in self.dv.keys():
                     new_path = copy.deepcopy(m_message[d]["path"])
                     new_path.insert(0,m_sender)
+                    print("new path" + str(new_path))
                     self.dv[d] = {"cost": self.neighbor_dv[m_sender][d]["cost"] + m_message[d]["cost"], "path": new_path}
             self.compute_shortest_path_process()
             routing_message_json = copy.deepcopy(self.dv)
