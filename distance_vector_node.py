@@ -41,7 +41,8 @@ class Distance_Vector_Node(Node):
                     self.dv[dst]["path"] = []
                     self.dv[dst]["cost"] = math.inf
         
-        routing_message_json = copy.deepcopy(self.dv)
+        # routing_message_json = copy.deepcopy(self.dv)
+        routing_message_json = self.dv
         routing_message_rv = {"message": json.dumps(routing_message_json), "sender": str(self.id), "seq": self.get_time()}
         routing_message = json.dumps(routing_message_rv)
         for n in self.neighbors:
@@ -70,6 +71,7 @@ class Distance_Vector_Node(Node):
                             prev = neighbor
                 if prev != None:
                     self.dv[dst]["cost"] = alt
+                    #new_path = copy.deepcopy(self.neighbor_dv[prev]["dv"][dst]["path"])
                     new_path = copy.deepcopy(self.neighbor_dv[prev]["dv"][dst]["path"])
                     #print(new_path)
                     new_path.reverse()
@@ -95,13 +97,14 @@ class Distance_Vector_Node(Node):
                     self.dv[dst] = {"cost": math.inf, "path": []}
             self.compute_shortest_path()
             if self.dv != tempt:
+                #routing_message_json = copy.deepcopy(self.dv)
                 routing_message_json = copy.deepcopy(self.dv)
                 routing_message_rv = {"message": json.dumps(routing_message_json), "sender": str(self.id), "seq": self.get_time()}
                 routing_message = json.dumps(routing_message_rv)
                 for n in self.neighbors:
                     self.send_to_neighbor(n, routing_message)
-            else:
-                self.dv = tempt
+            # else:
+            #     self.dv = tempt
 
 
 
