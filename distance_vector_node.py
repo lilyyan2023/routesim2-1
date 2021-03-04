@@ -10,7 +10,7 @@ class Distance_Vector_Node(Node):
         self.neighbor_dv = {}
         self.neighbor_seq = {}
         self.cost = {}
-        
+        self.need_to_send = False
 
 
     # Return a string
@@ -32,7 +32,7 @@ class Distance_Vector_Node(Node):
             self.cost[str(neighbor)] = latency
         elif latency != -1:
             self.cost[str(neighbor)] = latency
-            self.compute_shortest_path()
+            #self.compute_shortest_path()
         elif latency == -1:
             self.neighbors.remove(neighbor)
             self.cost[str(neighbor)] = math.inf
@@ -69,24 +69,29 @@ class Distance_Vector_Node(Node):
                             alt = self.cost[neighbor] + dst_dv[dst]["cost"]
                             prev = neighbor
                 if prev != None:
-                    self.dv[dst]["cost"] = alt
+                    
                     new_path = copy.deepcopy(self.neighbor_dv[prev]["dv"][dst]["path"])
                     #print(new_path)
                     new_path.reverse()
                     new_path.append(prev)
                     new_path.reverse()
+                    if self.dv[dst]["path"] != new_path or self.dv[dst]["cost"] != alt:
+                        self.need_to_send = True
                     self.dv[dst]["path"] = new_path
+                    self.dv[dst]["cost"] = alt
+                    
         #print("Finish dv " + str(self.dv))
         #print("Finish neighbour " + str(self.neighbor_dv))
 
     # Fill in this function
     def process_incoming_routing_message(self, m):
+        self.need_to_send = False
         #print("recevied" + m)
         m_dict = json.loads(m)
         m_message = json.loads(m_dict["message"])
         m_seq = m_dict["seq"]
         m_sender = str(m_dict["sender"])
-        tempt = copy.deepcopy(self.dv)
+        #tempt = copy.deepcopy(self.dv)
         if m_sender not in self.neighbor_seq.keys() or m_seq > self.neighbor_seq[m_sender]:
             #if m_sender in self.neighbor_seq.keys():
                 #print(self.neighbor_dv[m_sender]["dv"] == m_message)
@@ -95,14 +100,16 @@ class Distance_Vector_Node(Node):
             for dst in m_message.keys():
                 if dst not in self.dv.keys():
                     self.dv[dst] = {"cost": math.inf, "path": []}
+                    self.need_to_send = True
             self.compute_shortest_path()
-        if self.dv != tempt:
+        if self.need_to_send:
             routing_message_json = self.dv
             routing_message_rv = {"message": json.dumps(routing_message_json), "sender": str(self.id), "seq": self.get_time()}
             routing_message = json.dumps(routing_message_rv)
             #for n in self.neighbors:
                  #self.send_to_neighbor(n, routing_message)
             self.send_to_neighbors(routing_message)
+            self.need_to_send = False
             # else:
             #     self.dv = tempt
 
